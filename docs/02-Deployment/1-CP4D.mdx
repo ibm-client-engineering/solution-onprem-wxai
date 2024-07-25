@@ -1,0 +1,1053 @@
+---
+id: CP4D
+sidebar_position: 1
+title: Cloud Pak for Data Installation
+custom_edit_url: null
+---
+
+## Installing CP4D Cli
+
+### Download binary
+CP4D CLI can be found at the following link.
+
+https://github.com/IBM/cpd-cli/releases/download/v14.0.0/cpd-cli-linux-EE-14.0.0.tgz
+
+
+:::note
+ This binary is for linux, if running from a windows machine, please use the linux binary but run it from Windows Subsystem for Linux.
+
+ Also as of this writing the latest version of the cli is 14.0.0.
+:::
+
+```tsx
+wget https://github.com/IBM/cpd-cli/releases/download/v14.0.0/cpd-cli-linux-EE-14.0.0.tgz
+```
+
+Extract the files:
+
+```
+tar xzvf https://github.com/IBM/cpd-cli/releases/download/v14.0.0/cpd-cli-linux-EE-14.0.0.tgz
+```
+
+This will create the following directory:
+
+```tsx
+cpd-cli-linux-EE-14.0.0-288
+```
+
+### Configure environmental vars
+
+The following creates a CPD env file
+
+
+```tsx
+cat<<EOF> cpd_vars_5.sh
+#===============================================================================
+# Cloud Pak for Data installation variables
+#===============================================================================
+
+# ------------------------------------------------------------------------------
+# Client workstation 
+# ------------------------------------------------------------------------------
+# Set the following variables if you want to override the default behavior of the Cloud Pak for Data CLI.
+#
+# To export these variables, you must uncomment each command in this section.
+
+# export CPD_CLI_MANAGE_WORKSPACE=<enter a fully qualified directory>
+# export OLM_UTILS_LAUNCH_ARGS=<enter launch arguments>
+
+
+# ------------------------------------------------------------------------------
+# Cluster
+# ------------------------------------------------------------------------------
+
+export OCP_URL=<enter your Red Hat OpenShift Container Platform URL>
+export OPENSHIFT_TYPE=<enter your deployment type>
+export IMAGE_ARCH=<enter your cluster architecture>
+# export OCP_USERNAME=<enter your username>
+# export OCP_PASSWORD=<enter your password>
+# export OCP_TOKEN=<enter your token>
+export SERVER_ARGUMENTS="--server=${OCP_URL}"
+# export LOGIN_ARGUMENTS="--username=${OCP_USERNAME} --password=${OCP_PASSWORD}"
+# export LOGIN_ARGUMENTS="--token=${OCP_TOKEN}"
+export CPDM_OC_LOGIN="cpd-cli manage login-to-ocp ${SERVER_ARGUMENTS} ${LOGIN_ARGUMENTS}"
+export OC_LOGIN="oc login ${OCP_URL} ${LOGIN_ARGUMENTS}"
+
+
+# ------------------------------------------------------------------------------
+# Proxy server
+# ------------------------------------------------------------------------------
+
+# export PROXY_HOST=<enter your proxy server hostname>
+# export PROXY_PORT=<enter your proxy server port number>
+# export PROXY_USER=<enter your proxy server username>
+# export PROXY_PASSWORD=<enter your proxy server password>
+
+
+# ------------------------------------------------------------------------------
+# Projects
+# ------------------------------------------------------------------------------
+
+export PROJECT_CERT_MANAGER=<enter your certificate manager project>
+export PROJECT_LICENSE_SERVICE=<enter your License Service project>
+export PROJECT_SCHEDULING_SERVICE=<enter your scheduling service project>
+# export PROJECT_IBM_EVENTS=<enter your IBM Events Operator project>
+# export PROJECT_PRIVILEGED_MONITORING_SERVICE=<enter your privileged monitoring service project>
+export PROJECT_CPD_INST_OPERATORS=<enter your Cloud Pak for Data operator project>
+export PROJECT_CPD_INST_OPERANDS=<enter your Cloud Pak for Data operand project>
+# export PROJECT_CPD_INSTANCE_TETHERED=<enter your tethered project>
+# export PROJECT_CPD_INSTANCE_TETHERED_LIST=<a comma-separated list of tethered projects>
+
+
+
+# ------------------------------------------------------------------------------
+# Storage
+# ------------------------------------------------------------------------------
+
+export STG_CLASS_BLOCK=<RWO-storage-class-name>
+export STG_CLASS_FILE=<RWX-storage-class-name>
+
+# ------------------------------------------------------------------------------
+# IBM Entitled Registry
+# ------------------------------------------------------------------------------
+
+export IBM_ENTITLEMENT_KEY=<enter your IBM entitlement API key>
+
+
+# ------------------------------------------------------------------------------
+# Private container registry
+# ------------------------------------------------------------------------------
+# Set the following variables if you mirror images to a private container registry.
+#
+# To export these variables, you must uncomment each command in this section.
+
+# export PRIVATE_REGISTRY_LOCATION=<enter the location of your private container registry>
+# export PRIVATE_REGISTRY_PUSH_USER=<enter the username of a user that can push to the registry>
+# export PRIVATE_REGISTRY_PUSH_PASSWORD=<enter the password of the user that can push to the registry>
+# export PRIVATE_REGISTRY_PULL_USER=<enter the username of a user that can pull from the registry>
+# export PRIVATE_REGISTRY_PULL_PASSWORD=<enter the password of the user that can pull from the registry>
+
+
+# ------------------------------------------------------------------------------
+# Cloud Pak for Data version
+# ------------------------------------------------------------------------------
+
+export VERSION=5.0.0
+
+
+# ------------------------------------------------------------------------------
+# Components
+# ------------------------------------------------------------------------------
+
+export COMPONENTS=ibm-cert-manager,ibm-licensing,scheduler,cpfs,cpd_platform
+# export COMPONENTS_TO_SKIP=<component-ID-1>,<component-ID-2>
+
+
+# ------------------------------------------------------------------------------
+# watsonx Orchestrate
+# ------------------------------------------------------------------------------
+# export PROJECT_IBM_APP_CONNECT=<enter your IBM App Connect in containers project>
+# export AC_CASE_VERSION=<version>
+# export AC_CHANNEL_VERSION=<version>
+EOF
+```
+
+You will need to open the resultant `cpd_vars_50.sh` file and update the following vars:
+
+```tsx
+OCP_URL
+OCP_PASSWORD
+IBM_ENTITLEMENT_KEY
+```
+
+
+By default we set our storage classes to the `nfs-client` storage class. Your mileage may vary.
+
+The `OCP_URL` can be pulled with this command:
+```tsx
+oc cluster-info
+Kubernetes control plane is running at https://api.test.ibmwtests.local:6443
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+```
+
+The kubeadmin password can be found in the build directory for the cluster under `auth/kubeadmin-password`
+
+### Login to the cluster with cpd-cli
+
+Source the env file
+
+`source cpd_vars_50.sh`
+
+login with cpd-cli
+```
+cpd-cli manage login-to-ocp \
+--username=${OCP_USERNAME} \
+--password=${OCP_PASSWORD} \
+--server=${OCP_URL}
+```
+
+### Retrieve the entitlement key
+
+The key can be retrieved from [here](https://myibm.ibm.com/products-services/containerlibrary)
+
+## Mirroring CPD Images to Private Registry
+
+### Workstation can reach internet and cluster:
+
+When the workstation is connected to the internet, run the following command to update the olm-utils-v3 image on the workstation:
+
+```
+cpd-cli manage restart-container
+```
+
+### Workstation used for install cannot reach internet:
+
+
+#### Save the olm-utils-v3 image
+Run the following command to save the olm-utils-v3 image to the client workstation:
+
+```
+cpd-cli manage save-image --from=icr.io/cpopen/cpd/olm-utils-v3:latest
+```
+
+#### Transfer olm-utils-v3 to install workstation
+
+Run the following command to load the olm-utils-v3 image on the client workstation:
+
+```
+cpd-cli manage load-image --source-image=icr.io/cpopen/cpd/olm-utils-v3:latest
+```
+
+Set the OLM_UTILS_IMAGE environment variable to ensure that the cpd-cli uses the version of the image on the client workstation:
+
+```
+export OLM_UTILS_IMAGE=icr.io/cpopen/cpd/olm-utils-v3:latest
+```
+
+### Downloading CASE packages
+
+Run the appropriate command depending on the site from which you plan to download the CASE packages:
+
+```
+cpd-cli manage case-download \
+--components=${COMPONENTS} \
+--release=${VERSION}
+```
+
+Change the permissions of the work directory
+
+```
+chown -R 1001 ./work
+chmod -R 775 ./work
+```
+
+Restart the container
+
+```
+cpd-cli manage restart-container
+```
+
+#### Log into IBM Entitled Registry:
+
+```
+cpd-cli manage login-entitled-registry ${IBM_ENTITLEMENT_KEY}
+```
+
+#### Download the CASE packages
+
+```
+cpd-cli manage list-images \
+--components=${COMPONENTS} \
+--release=${VERSION} \
+--inspect_source_registry=true
+```
+
+#### (Optional) Download Watson Studio GPU Runtimes
+
+If you are mirroring the images for Watson Studio, you can choose which Watson Studio Runtimes images are mirrored.
+
+```
+sed -i -e '/gpu/d' ./cpd-cli-workspace/olm-utils-workspace/work/offline/${VERSION}/.ibm-pak/data/cases/ibm-wsl-runtimes/*/ibm-wsl-runtimes-*-images.csv
+```
+
+#### Mirror the images to the intermediary container registry
+
+The command automatically sets up an intermediary container registry on the client workstation. The address of the intermediary container registry is 127.0.0.1:12443.
+
+```
+cpd-cli manage mirror-images \
+--components=${COMPONENTS} \
+--release=${VERSION} \
+--target_registry=127.0.0.1:12443 \
+--arch=${IMAGE_ARCH} \
+--case_download=false
+```
+
+#### Confirm that the images were mirrored to the intermediary container registry
+
+```
+cpd-cli manage list-images \
+--components=${COMPONENTS} \
+--release=${VERSION} \
+--target_registry=127.0.0.1:12443 \
+--case_download=false
+```
+
+### Move images to registry in restricted network
+
+#### Login in to Private Registry with CPD CLI
+
+```
+cpd-cli manage login-private-registry \
+${PRIVATE_REGISTRY_LOCATION} \
+${PRIVATE_REGISTRY_PUSH_USER} \
+${PRIVATE_REGISTRY_PUSH_PASSWORD}
+```
+
+#### Mirror images from intermediate registry to restricted registry
+
+```
+cpd-cli manage mirror-images \
+--components=${COMPONENTS} \
+--release=${VERSION} \
+--source_registry=127.0.0.1:12443 \
+--target_registry=${PRIVATE_REGISTRY_LOCATION} \
+--arch=${IMAGE_ARCH} \
+--case_download=false
+```
+#### Confirm images are on restricted registry 
+
+```
+cpd-cli manage list-images \
+--components=${COMPONENTS} \
+--release=${VERSION} \
+--target_registry=${PRIVATE_REGISTRY_LOCATION} \
+--case_download=false
+```
+### Configure image content source policy
+
+If you mirror images to a private container registry, you must tell your cluster where to find the software images by creating an image content source policy or image digest mirror set.
+
+#### Create or update the required image content source policy or image digest mirror set:
+
+```
+cpd-cli manage apply-icsp \
+--registry=${PRIVATE_REGISTRY_LOCATION}
+```
+
+#### Get status of nodes
+
+```
+oc get nodes
+```
+
+#### Pull olm-utils-v3 image from private container registry
+
+```
+export OLM_UTILS_IMAGE=${PRIVATE_REGISTRY_LOCATION}/cpopen/cpd/olm-utils-v3:${VERSION}
+```
+
+## Installing CP4D 
+
+### Authorizing instances
+
+This step creates all required projects, creates the NamespaceScope operator in the operators project, and binds the applied role to the service account of the NamespaceScope operator.
+
+```tsx
+cpd-cli manage authorize-instance-topology \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS}
+```
+
+**This was successful**
+
+### Installation of shared components
+
+These two tasks come from here:
+https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=cluster-installing-shared-components
+
+:::note
+If you are unable to access github, include the following flags to the next two commands as well as _any_ `apply-olm` command below
+
+```tsx
+--case_download=true \
+--from_oci=true
+```
+:::
+
+```tsx
+cpd-cli manage apply-cluster-components \
+--release=${VERSION} \
+--license_acceptance=true \
+--cert_manager_ns=${PROJECT_CERT_MANAGER} \
+--licensing_ns=${PROJECT_LICENSE_SERVICE}
+```
+
+Install the scheduler
+
+```tsx
+cpd-cli manage apply-scheduler \
+--release=${VERSION} \
+--license_acceptance=true \
+--scheduler_ns=${PROJECT_SCHEDULING_SERVICE}
+```
+
+### Setup instance topology
+
+```tsx
+cpd-cli manage setup-instance-topology \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--license_acceptance=true \
+--block_storage_class=${STG_CLASS_BLOCK}
+```
+### Installation of primary CPD components
+
+This installs the operators in the operators project for the instance.
+
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=${COMPONENTS}
+```
+
+
+### Installing Red Hat OpenShift Serverless Knative Eventing
+
+Red Hat OpenShift Serverless Knative Eventing and IBM Events are required for **watsonx Assistant**
+
+#### Authorize the projects where the software will be installed to communicate
+```tsx
+cpd-cli manage authorize-instance-topology \
+--release=${VERSION} \
+--cpd_operator_ns=ibm-knative-events \
+--cpd_instance_ns=knative-eventing
+```
+
+#### Install the IBM Events Operator in the ibm-knative-events project
+
+```tsx
+cpd-cli manage setup-instance-topology \
+--release=${VERSION} \
+--cpd_operator_ns=ibm-knative-events \
+--cpd_instance_ns=knative-eventing \
+--license_acceptance=true
+```
+
+#### Finally installing the OSKE
+
+```tsx
+cpd-cli manage deploy-knative-eventing \
+--release=${VERSION} \
+--block_storage_class=${STG_CLASS_BLOCK}
+```
+
+### Installing the Cloud Pak for Data control plane and services
+
+This installs the operands in the operands project for the instance:
+
+```tsx
+cpd-cli manage apply-cr \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=${COMPONENTS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+This is a big one, so it might take a little while. When it completes, verify the operands are up:
+
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS}
+```
+This should return a `Completed` status.
+
+The routes should be created and ready at this point. You can retrieve the web-url for the client with the following command:
+
+```tsx
+cpd-cli manage get-cpd-instance-details \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--get_admin_initial_credentials=true
+```
+
+### Generate a cpd-cli Profile
+
+Log into the CP4D webui with the info retrieved from the `get-cpd-instance-details` and go to your Profile and settings page in the Cloud Pak for Data client and clicking Generate API key.
+
+In the upper right hand corner, click `API key` -> `Generate new key`
+
+Copy the generated key.
+
+Collect the web client URL and export it with the following command
+
+```tsx
+export CPD_PROFILE_URL=$(oc get route cpd --namespace=${PROJECT_CPD_INST_OPERANDS} | tail -1 | awk '{print "https://"$2}')
+```
+
+We'll set our `profile-name` to the cluster name.
+
+Set the following vars:
+```tsx
+export API_KEY=<key you copied above>
+export CPD_ADMIN_USER=cpadmin
+export LOCAL_USER=<local user name>
+export CPD_PROFILE_NAME=wxai
+```
+
+Create a local user configuration to store your username and API key by using the config users set command.
+
+```tsx
+cpd-cli config users set ${LOCAL_USER} \
+--username ${CPD_ADMIN_USER} \
+--apikey ${API_KEY}
+```
+
+Create a profile to store the Cloud Pak for Data URL and to associate the profile with your local user configuration by using the config profiles set command.
+
+```tsx
+cpd-cli config profiles set ${CPD_PROFILE_NAME} \
+--user ${LOCAL_USER} \
+--url ${CPD_PROFILE_URL}
+```
+
+You can now run cpd-cli commands with this profile as shown in the following example.
+
+```tsx
+cpd-cli service-instance list \
+--profile=${CPD_PROFILE_NAME}
+```
+
+## Installing our Cartridges
+
+Source the env file
+
+`source cpd_vars_48.sh`
+
+Login with cpd-cli
+```
+cpd-cli manage login-to-ocp \
+--username=${OCP_USERNAME} \
+--password=${OCP_PASSWORD} \
+--server=${OCP_URL}
+```
+
+### Apply necessary Security Constraints 
+
+The apply-db2-kubelet command makes the following changes to the cluster nodes:
+
+```tsx
+allowedUnsafeSysctls:
+  - "kernel.msg*"
+  - "kernel.shm*"
+  - "kernel.sem"
+```
+
+```tsx
+cpd-cli manage apply-db2-kubelet
+```
+
+This might take a bit as the workers will be getting bounced.
+
+### Watsonx Assistant
+
+:::note
+By default the deployment size for WA is `Production`. If we want to go with something larger, we need to deploy with an `options` file.
+
+`install-options.yml`
+```tsx
+################################################################################
+# watsonx Assistant parameters
+################################################################################
+watson_assistant_size: Production
+watson_assistant_bigpv: false
+watson_assistant_analytics_enabled: true
+```
+The default Production size in this case is more the suited for our purposes.
+:::
+
+#### Apply the olm
+
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=watson_assistant
+```
+
+And run the install command
+
+```tsx
+cpd-cli manage apply-cr \
+--components=watson_assistant \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+#### Validate the installation
+
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=watson_assistant
+```
+
+#### Create an instance of WA
+
+https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=csi-creating-service-instance-cpd-cli-service-instance-create-2
+
+Set the INSTANCE_NAME environment variable to the unique name that you want to use as the display name for the service instance. We're just going to call this `wa-instance`.
+```tsx
+export INSTANCE_NAME="wa-instance"
+```
+
+:::note
+You should have followed the steps [here](/Deployment/Software/CP4D#generate-a-cpd-cli-profile) to generate a profile.
+
+The example profile we created we called `wxai`.
+:::
+
+```tsx
+export CPD_PROFILE_NAME="wxai"
+```
+
+Set the INSTANCE_VERSION env var to the version that corresponds to the version of CP4D. As of this writing and this guide, we are using 4.8.4. The Service instance version must match the release of CP4D.
+
+```tsx
+export INSTANCE_VERSION=4.8.4
+```
+
+Create the assistant-instance.json payload file:
+```tsx
+cat << EOF > ./assistant-instance.json
+{
+    "addon_type": "assistant",
+    "display_name": "${INSTANCE_NAME}",
+    "namespace": "${PROJECT_CPD_INST_OPERANDS}",
+    "addon_version": "${INSTANCE_VERSION}",
+    "create_arguments": {
+        "deployment_id": "${PROJECT_CPD_INST_OPERANDS}-wa", 
+	     "parameters": { 
+	         "serviceId": "assistant", 
+	         "url": "https://wa-store.${PROJECT_CPD_INST_OPERANDS}.svc.cluster.local:443/csb/v2/service_instances", 
+	         "watson": true 
+        }
+    }
+}
+EOF
+```
+
+Set the PAYLOAD_FILE environment variable to the fully qualified name of the JSON payload file
+
+```tsx
+export PAYLOAD_FILE=/path/to/whereever/this/file/is/assistant-instance.json
+```
+
+#### Create the service instance from the payload file:
+
+```tsx
+cpd-cli service-instance create \
+--profile=${CPD_PROFILE_NAME} \
+--from-source=${PAYLOAD_FILE}
+```
+
+#### Validating that the service instance was created
+
+```tsx
+cpd-cli service-instance status ${INSTANCE_NAME} \
+--profile=${CPD_PROFILE_NAME} \
+--output=json
+```
+
+### Watson Discovery
+
+#### Apply the olm
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=watson_discovery
+```
+
+And then apply the CR
+```tsx
+cpd-cli manage apply-cr \
+--components=watson_discovery \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+#### Validate the installation
+
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=watson_discovery
+```
+
+#### Create an instance of WD
+
+_TBD_
+
+### OpenPages
+
+Run the following command to create the required OLM objects for OpenPages in the operators project for the instance:
+
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=openpages
+```
+
+Create the custom resource for OpenPages
+
+```tsx
+cpd-cli manage apply-cr \
+--components=openpages \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--license_acceptance=true
+```
+
+Validate the installation
+
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=openpages
+```
+
+Create a service instance
+
+https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=csi-creating-service-instance-cpd-cli-service-instance-create-14
+
+### Watson Studio
+
+Run the following command to create the required OLM objects for Watson Studio in the operators project for the instance:
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=ws
+```
+
+Create the custom resource
+
+```tsx
+cpd-cli manage apply-cr \
+--components=ws \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+Validate the installation
+
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=ws
+```
+
+### Watson Machine Learning
+
+Apply the olm
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=wml
+```
+
+Apply the CR
+```tsx
+cpd-cli manage apply-cr \
+--components=wml \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+Verify the installation
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=ws
+```
+
+### IBM Knowledge Catalog
+
+Run the following command to create the required OLM objects for IBM Knowledge Catalog in the operators project for the instance:
+
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=wkc
+```
+
+We're using default options for this installation, so kick off the following CR
+```tsx
+cpd-cli manage apply-cr \
+--components=wkc \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+### Watsonx Orchestrate
+
+#### IBM App Connect
+
+IBM App Connect is a requirement for Watsonx Orchestrate
+
+Make sure to set these vars in `cpd_vars_48.sh`
+
+We are using CP4D 4.8.4, so the following vars are valid:
+
+```tsx
+export PROJECT_IBM_APP_CONNECT=appconnect
+export AC_CASE_VERSION=11.3.0
+export AC_CHANNEL_VERSION=v11.3
+```
+
+Now source the `cpd_vars_48.sh` file
+
+```tsx
+source ./cpd_vars_48.sh
+```
+
+Download the IBM App Connect case file
+
+```tsx
+curl -sSLO https://github.com/IBM/cloud-pak/raw/master/repo/case/ibm-appconnect/${AC_CASE_VERSION}/ibm-appconnect-${AC_CASE_VERSION}.tgz
+```
+
+You should have in your home directory `ibm-appconnect-11.3.0.tgz`.
+
+Extract the file with 
+```tsx
+tar xvf ibm-appconnect-${AC_CASE_VERSION}.tgz
+```
+
+Login to the cluster with cpd-cli
+```
+cpd-cli manage login-to-ocp \
+--username=${OCP_USERNAME} \
+--password=${OCP_PASSWORD} \
+--server=${OCP_URL}
+```
+
+Create the project for App Connect
+
+```tsx
+oc new-project ${PROJECT_IBM_APP_CONNECT} --display-name 'IBM App Connect'
+```
+
+Create the catalog source for the App Connect operator
+
+```tsx
+oc patch \
+--filename=ibm-appconnect/inventory/ibmAppconnect/files/op-olm/catalog_source.yaml \
+--type=merge \
+-o yaml \
+--patch="{\"metadata\":{\"namespace\":\"${PROJECT_IBM_APP_CONNECT}\"}}" \
+--dry-run=client \
+| oc apply -n ${PROJECT_IBM_APP_CONNECT} -f -
+```
+
+Create the operator group for the App Connect operator:
+```tsx
+cat <<EOF | oc apply -f -
+  apiVersion: operators.coreos.com/v1
+  kind: OperatorGroup
+  metadata:
+    name: appconnect-og
+    namespace: ${PROJECT_IBM_APP_CONNECT}
+  spec:
+    targetNamespaces:
+    - ${PROJECT_IBM_APP_CONNECT}
+    upgradeStrategy: Default
+EOF
+```
+
+Now create the subscription for the AC operator
+```tsx
+cat <<EOF | oc apply -f -
+  apiVersion: operators.coreos.com/v1alpha1
+  kind: Subscription
+  metadata:
+    name: ibm-appconnect-operator
+    namespace: ${PROJECT_IBM_APP_CONNECT}
+  spec:
+    channel: ${AC_CHANNEL_VERSION}
+    config:
+      env:
+      - name: ACECC_ENABLE_PUBLIC_API
+        value: "true"
+    installPlanApproval: Automatic
+    name: ibm-appconnect
+    source: appconnect-operator-catalogsource
+    sourceNamespace: ${PROJECT_IBM_APP_CONNECT}
+EOF
+```
+
+Now wait for the operator to come online
+
+```tsx
+oc wait csv \
+--namespace=${PROJECT_IBM_APP_CONNECT} \
+--selector=operators.coreos.com/ibm-appconnect.${PROJECT_IBM_APP_CONNECT}='' \
+--for='jsonpath={.status.phase}'=Succeeded
+```
+
+#### Installing Watsonx Orchestrate 
+
+Once the App Connect operator is up and running, we can move on to installing Watsonx Orchestrate
+
+source the `cpd_vars_48.sh` file
+
+```tsx
+source ./cpd_vars_48.sh
+```
+
+Login to the cluster with cpd-cli
+```
+cpd-cli manage login-to-ocp \
+--username=${OCP_USERNAME} \
+--password=${OCP_PASSWORD} \
+--server=${OCP_URL}
+```
+
+Create an instance of App Connect for watsonx Orchestrate
+
+```tsx
+cpd-cli manage setup-appconnect \
+--appconnect_ns=${PROJECT_IBM_APP_CONNECT} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--release=${VERSION} \
+--components=watsonx_orchestrate \
+--file_storage_class=${STG_CLASS_FILE}
+```
+
+Set the CPD_USERNAME environment variable to your Cloud Pak for Data username:
+
+This should be the cpd admin user you created when you ran the tasks [here](/Deployment/Software/CP4D#generate-a-cpd-cli-profile)
+
+```tsx
+export CPD_USERNAME=cpadmin
+```
+
+Create the required watsonx Assistant service instances for watsonx Orchestrate. 
+
+```tsx
+cpd-cli manage setup-wxo-assistant \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--create_assistants=true \
+--user=${CPD_USERNAME} \
+--auth_type=apikey
+```
+
+Input the apikey you generated when you created the cpd-cli profile.
+
+Apply the olm
+
+```tsx
+cpd-cli manage apply-olm \
+--release=${VERSION} \
+--cpd_operator_ns=${PROJECT_CPD_INST_OPERATORS} \
+--components=watsonx_orchestrate
+```
+
+When that command returns, apply the Custom Resource
+
+```tsx
+cpd-cli manage apply-cr \
+--components=watsonx_orchestrate \
+--release=${VERSION} \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--block_storage_class=${STG_CLASS_BLOCK} \
+--file_storage_class=${STG_CLASS_FILE} \
+--license_acceptance=true
+```
+
+Verify the the cr was applied successfully with this command
+
+```tsx
+cpd-cli manage get-cr-status \
+--cpd_instance_ns=${PROJECT_CPD_INST_OPERANDS} \
+--components=watsonx_orchestrate
+```
+
+:::warning
+
+As of version 4.8.4 of CP4D, deploying the CR for Watsonx Orchestrate can sometimes get hung up on a mongodb pod error. This can hold up the entire installation as documented [here](https://www.ibm.com/docs/en/cloud-paks/cp-data/4.8.x?topic=limitations-watsonx-orchestrate#orchestrate-known-issues__db-pod-error__title__1)
+
+If the deployment is hanging, run the following commands to verify the issue:
+
+```tsx
+oc exec -it -c mongodb-agent  mongodb-wo-mongo-ops-manager-db-0 -- /opt/scripts/readinessprobe
+```
+This may return 
+```tsx
+panic: Get "[https://172.30.0.1:443/api/v1/namespaces/cpd-instance-1/pods/mongodb-wo-mongo-ops-manager-db-0](https://172.30.0.1/api/v1/namespaces/cpd-instance-1/pods/mongodb-wo-mongo-ops-manager-db-0)": dial tcp 172.30.0.1:443: i/o timeout
+```
+
+Resolve the error by running the following:
+```tsx
+# Update opsmanager labels to allow access
+oc patch opsmanager mongodb-wo-mongo-ops-manager --type merge --patch '{"spec":{"applicationDatabase":{"podSpec":{"podTemplate":{"metadata":{"labels":{"wo.watsonx.ibm.com/external-access":"true"}}}}}}}'
+# Delete existing sts to force re-rollout:
+oc delete sts mongodb-wo-mongo-ops-manager-db
+```
+
+:::
+
+### Troubleshooting WatsonX Orchestrate installation 
+:::note
+
+If the "apply-cr" command exhausts its retries without succeeding, there maybe in an issue with MongoDB.
+
+This issue does not show a clear error in the pod or in the opsmanager CR. To confirm that the mongodb-wo-mongo-ops-manager-db pod error has occurred in the cluster, run the following command:
+oc exec -it -c mongodb-agent  mongodb-wo-mongo-ops-manager-db-0 -- /opt/scripts/readinessprobe
+
+If the error has occurred in the cluster, the following is displayed:
+
+```
+panic: Get "https://172.30.0.1:443/api/v1/namespaces/cpd-instance-1/pods/mongodb-wo-mongo-ops-manager-db-0": dial tcp 172.30.0.1:443: i/o timeout
+```
+
+**Cause**
+
+This error occurs in certain clusters when the MongoDB readinessprobe calls to the Kubernetes API are not supported by the network traffic.
+
+
+**Solution**
+
+To resolve this error, run the following commands:
+
+```
+# Update opsmanager labels to allow access
+oc patch opsmanager mongodb-wo-mongo-ops-manager --type merge --patch '{"spec":{"applicationDatabase":{"podSpec":{"podTemplate":{"metadata":{"labels":{"wo.watsonx.ibm.com/external-access":"true"}}}}}}}'
+# Delete existing sts to force re-rollout:
+oc delete sts mongodb-wo-mongo-ops-manager-db
+```
+
+:::
