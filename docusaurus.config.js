@@ -130,7 +130,7 @@ async function createconfig() {
           },
         },
         navbar: {
-          title: "| Insert Solution Name",
+          title: "| Solution On-Prem WXAI",
           logo: {
             alt: "IBM Client Engineering Logo",
             src: "img/logo.svg",
