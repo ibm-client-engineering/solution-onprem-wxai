@@ -1,6 +1,9 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
+import rehypeRaw from 'rehype-raw';
+import { remarkKroki } from 'remark-kroki';
+
 const lightCodeTheme = require("prism-react-renderer").themes.oceanicNext;
 const darkCodeTheme = require("prism-react-renderer").themes.oceanicNext;
 
@@ -22,7 +25,7 @@ async function createconfig() {
     url: "https://ibm-client-engineering.github.io",
     // Set the /<baseUrl>/ pathname under which your site is served
     // For GitHub pages deployment, it is often "/<projectName>/"
-    baseUrl: "/solution-onprem-wxai",
+    baseUrl: "/solution-onprem-wxai/",
 
 
     // GitHub pages deployment config.
@@ -74,6 +77,20 @@ async function createconfig() {
         ({
           docs: {
             remarkPlugins: [[remarkKroki, { server: "https://kroki.io/", output: "inline-svg" }]],
+            rehypePlugins: [
+              [
+                rehypeRaw,
+                {
+                  passThrough: [
+                    'mdxFlowExpression',
+                    'mdxJsxFlowElement',
+                    'mdxJsxTextElement',
+                    'mdxTextExpression',
+                    'mdxjsEsm'
+                  ]
+                }
+              ]
+            ],
             routeBasePath: "/",
             sidebarPath: require.resolve("./sidebars.js"),
             // Please change this to your repo.
